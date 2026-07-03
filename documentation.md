@@ -166,3 +166,41 @@ if (token) {
 }
 ```
 If a `401 Unauthorized` response is received, `api.js` clears local storage and redirects the browser to `login.html`.
+
+---
+
+## 7. July 2026 Feature Expansion Notes
+
+### What Changed
+- Added 3-role authentication support (`student`, `alumni`, `admin`) with role claims in JWTs, banned-account checks in login/current-user resolution, and admin-only route guards.
+- Added admin database/moderation APIs under `/api/admin`: platform stats, user listing, ban/unban, all bookings, all forum posts/replies, and soft-delete actions for posts and replies.
+- Added `is_banned` to users, `is_deleted` to forum posts/replies, and `parent_id` to forum replies. `init_db()` includes a small SQLite column shim for existing demo databases, while `seed.py` recreates the full schema cleanly.
+- Implemented nested forum replies with arbitrary-depth `parent_id` trees returned from `GET /api/forum/posts/{id}` and reply creation via body `parent_id` or query `parent_id`.
+- Added public user profile support through `/api/users/{user_id}` and frontend `profile.html`; forum author names link to those profiles.
+- Added `admin.html` and `frontend/js/admin.js` for database monitoring, ban/unban, soft-delete moderation, and booking review.
+- Replaced the forum question popup with a full-screen editor using Markdown-style toolbar insertions for bold, italic, headings, lists, and code blocks plus live preview.
+- Added light/dark theme toggling in the shared navbar, persistent `localStorage` theme state, and CSS overrides in `frontend/css/styles.css`.
+- Added subtle homepage fade/slide-up animation classes to the landing hero content and mockup panel.
+
+### Why It Changed
+- Admin moderation and bans match the role-based architecture already described in `plan.md` and make the platform manageable beyond ordinary student/alumni flows.
+- Soft deletion preserves forum auditability for admin review while hiding removed content from public forum endpoints.
+- Nested replies make forum conversations easier to follow and align the implementation with the self-referential reply model in the plan.
+- Public profiles give forum interactions useful context without exposing sensitive data beyond the demo account fields already present.
+- The full-screen editor gives longer questions room to breathe and supports richer technical posts without adding a frontend build step or heavy editor dependency.
+- Theme switching and landing animation improve polish while staying compatible with the existing Tailwind CDN + vanilla JS stack.
+
+### Color Scheme Suggestions
+| Scheme | Hex Codes | Reasoning |
+|---|---|---|
+| Professional Indigo | `#4F46E5`, `#0F172A`, `#F8FAFC`, `#10B981` | Keeps the current trusted education/SaaS feel, with emerald reserved for success and status indicators. |
+| High Contrast Academic | `#111827`, `#F9FAFB`, `#F59E0B`, `#2563EB` | Strong readability for dashboards and admin tables; amber can highlight moderation or pending actions. |
+| Calm Pastel Mentorship | `#6366F1`, `#ECFEFF`, `#FCE7F3`, `#475569` | Softer and more community-oriented while keeping enough slate contrast for long forum reading. |
+
+### Notes For Future Agents
+- `apply_patch` was unavailable in this desktop session because the filesystem sandbox helper failed to spawn; edits were made with escalated PowerShell writes instead.
+- The project currently has a dependency environment under `backend/app/venv`; the root `venv` did not have FastAPI installed during verification.
+- Public forum endpoints filter out soft-deleted posts/replies. Admin endpoints intentionally show both visible and deleted content.
+- `seed.py` includes `admin@example.com` with password `password123`. Public registration rejects `admin` role creation.
+- The rich-text editor stores Markdown-like text in the existing `body` field and renders it client-side with a small sanitizer/renderer in `utils.js`; no Markdown package is required.
+- For production, replace the SQLite compatibility shim with Alembic migrations before adding more schema changes.

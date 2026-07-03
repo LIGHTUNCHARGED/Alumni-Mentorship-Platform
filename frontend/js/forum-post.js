@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // DOM Elements
     const threadLoader = document.getElementById('thread-loader');
     const postCard = document.getElementById('forum-post-detail-card');
     const postAuthorAvatar = document.getElementById('post-author-avatar');
@@ -16,24 +15,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const postBody = document.getElementById('post-body');
     const postUpvoteBtn = document.getElementById('post-upvote-btn');
     const postUpvoteCount = document.getElementById('post-upvote-count');
-    
     const repliesCount = document.getElementById('replies-count');
     const repliesContainer = document.getElementById('replies-container');
     const replyFormSection = document.getElementById('reply-form-section');
 
-    let currentPost = null;
+    let activeReplyParent = null;
 
-    // Load Post Detail
     async function loadPostDetail() {
         try {
             const post = await api.get(`/forum/posts/${postId}`);
-            if (!post) {
-                utils.showToast('Post not found', 'error');
-                setTimeout(() => { window.location.href = 'forum.html'; }, 2000);
-                return;
-            }
-
-            currentPost = post;
             renderPost(post);
             renderReplies(post.replies || []);
             setupReplyForm();
@@ -45,235 +35,170 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Render Post Info
+    function flattenReplies(replies) {
+        return replies.reduce((all, reply) => all.concat(reply, flattenReplies(reply.children || [])), []);
+    }
+
     function renderPost(post) {
         const initials = post.author.full_name.split(' ').map(n => n[0]).join('').substring(0, 2);
         postAuthorAvatar.textContent = initials;
-        postAuthorName.textContent = post.author.full_name;
+        postAuthorName.innerHTML = `<a href="profile.html?id=${post.author.id}" class="hover:text-indigo-600">${utils.escapeHtml(post.author.full_name)}</a>`;
         postDate.textContent = utils.formatDate(post.created_at);
         postTitle.textContent = post.title;
-        postBody.textContent = post.body;
+        postBody.classList.add('rich-body');
+        postBody.innerHTML = utils.renderRichText(post.body);
         postUpvoteCount.textContent = post.upvotes;
-
-        // Author Role Badge Styling
         postAuthorRole.textContent = post.author.role;
-        postAuthorRole.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ml-1.5 ${post.author.role === 'alumni' ? 'bg-indigo-100 text-indigo-800' : 'bg-green-100 text-green-800'}`;
+        postAuthorRole.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ml-1.5 ${post.author.role === 'alumni' ? 'bg-indigo-100 text-indigo-800' : post.author.role === 'admin' ? 'bg-rose-100 text-rose-800' : 'bg-green-100 text-green-800'}`;
 
-        // Render Delete Button if author is current user
-        const userJson = localStorage.getItem('user');
-        const user = userJson ? JSON.parse(userJson) : null;
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
         const adminActions = document.getElementById('post-admin-actions');
-        if (adminActions) {
-            adminActions.innerHTML = '';
-            if (user && user.id === post.author_id) {
-                adminActions.innerHTML = `
-                    <button id="delete-post-btn" class="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-800 font-semibold border border-rose-200 hover:bg-rose-50 px-3 py-1.5 rounded-xl transition">
-                        🗑️ Delete Topic
-                    </button>
-                `;
-
-                document.getElementById('delete-post-btn').addEventListener('click', async () => {
-                    if (confirm('Are you sure you want to delete this topic? This action cannot be undone.')) {
-                        try {
-                            await api.delete(`/forum/posts/${post.id}`);
-                            utils.showToast('Topic deleted successfully!', 'success');
-                            setTimeout(() => {
-                                window.location.href = 'forum.html';
-                            }, 1500);
-                        } catch (err) {
-                            utils.showToast(err.message || 'Failed to delete topic', 'error');
-                        }
-                    }
-                });
-            }
+        adminActions.innerHTML = '';
+        if (user && (user.id === post.author_id || user.role === 'admin')) {
+            adminActions.innerHTML = `<button id="delete-post-btn" class="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-800 font-semibold border border-rose-200 hover:bg-rose-50 px-3 py-1.5 rounded-xl transition">Delete Topic</button>`;
+            document.getElementById('delete-post-btn').addEventListener('click', async () => {
+                if (!confirm('Delete this topic?')) return;
+                try {
+                    await api.delete(user.role === 'admin' ? `/admin/posts/${post.id}` : `/forum/posts/${post.id}`);
+                    utils.showToast('Topic deleted successfully!', 'success');
+                    setTimeout(() => { window.location.href = 'forum.html'; }, 700);
+                } catch (err) {
+                    utils.showToast(err.message || 'Failed to delete topic', 'error');
+                }
+            });
         }
     }
 
-    // Render Replies List
     function renderReplies(replies) {
-        repliesCount.textContent = replies.length;
-        repliesContainer.innerHTML = '';
+        repliesCount.textContent = flattenReplies(replies).length;
+        repliesContainer.innerHTML = replies.length ? replies.map(reply => renderReply(reply, 0)).join('') : `
+            <div class="bg-white border border-slate-200 p-8 rounded-2xl text-center text-slate-500 font-light text-sm">No replies yet. Start the conversation below!</div>
+        `;
+    }
 
-        if (replies.length === 0) {
-            repliesContainer.innerHTML = `
-                <div class="bg-white border border-slate-200 p-8 rounded-2xl text-center text-slate-500 font-light text-sm">
-                    No replies yet. Start the conversation below!
-                </div>
-            `;
-            return;
-        }
-
-        replies.forEach(reply => {
-            const initials = reply.author.full_name.split(' ').map(n => n[0]).join('').substring(0, 2);
-            const dateStr = utils.formatDate(reply.created_at);
-
-            const card = document.createElement('div');
-            card.className = 'bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between';
-            
-            card.innerHTML = `
-                <div>
-                    <div class="flex items-center gap-3 text-xs text-slate-500 mb-3 border-b border-slate-50 pb-2">
-                        <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
-                            ${initials}
-                        </div>
-                        <div>
-                            <span class="font-semibold text-slate-800">${reply.author.full_name}</span>
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ml-1.5 ${reply.author.role === 'alumni' ? 'bg-indigo-100 text-indigo-800' : 'bg-green-100 text-green-800'}">
-                                ${reply.author.role}
-                            </span>
-                            <span class="mx-1.5">•</span>
-                            <span>${dateStr}</span>
-                        </div>
+    function renderReply(reply, depth) {
+        const initials = reply.author.full_name.split(' ').map(n => n[0]).join('').substring(0, 2);
+        const nested = (reply.children || []).map(child => renderReply(child, depth + 1)).join('');
+        const maxDepth = Math.min(depth, 5);
+        return `
+            <article class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm" style="margin-left:${maxDepth * 1.25}rem" data-reply-id="${reply.id}">
+                <div class="flex items-center gap-3 text-xs text-slate-500 mb-3 border-b border-slate-50 pb-2">
+                    <a href="profile.html?id=${reply.author.id}" class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold">${utils.escapeHtml(initials)}</a>
+                    <div>
+                        <a href="profile.html?id=${reply.author.id}" class="font-semibold text-slate-800 hover:text-indigo-600">${utils.escapeHtml(reply.author.full_name)}</a>
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ml-1.5 ${reply.author.role === 'alumni' ? 'bg-indigo-100 text-indigo-800' : reply.author.role === 'admin' ? 'bg-rose-100 text-rose-800' : 'bg-green-100 text-green-800'}">${reply.author.role}</span>
+                        <span class="mx-1.5">•</span><span>${utils.formatDate(reply.created_at)}</span>
                     </div>
-
-                    <p class="text-sm text-slate-600 leading-relaxed font-light whitespace-pre-line mb-3">
-                        ${reply.body}
-                    </p>
                 </div>
-
-                <div class="flex items-center gap-4 pt-2 text-sm font-medium">
-                    <!-- Reply Upvote Button -->
+                <div class="rich-body text-sm text-slate-600 leading-relaxed font-light mb-3">${utils.renderRichText(reply.body)}</div>
+                <div class="flex items-center gap-3 pt-2 text-sm font-medium">
                     <button class="reply-upvote-btn flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 transition px-2.5 py-1 rounded-xl hover:bg-slate-50 border border-slate-100" data-reply-id="${reply.id}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
                         <span class="reply-upvote-count">${reply.upvotes}</span>
                     </button>
+                    ${localStorage.getItem('token') ? `<button class="reply-to-btn text-slate-500 hover:text-indigo-600" data-reply-id="${reply.id}" data-name="${utils.escapeHtml(reply.author.full_name)}">Reply</button>` : ''}
                 </div>
-            `;
-
-            repliesContainer.appendChild(card);
-        });
+            </article>
+            ${nested}`;
     }
 
-    // Setup Reply Form
     function setupReplyForm() {
         const token = localStorage.getItem('token');
-        replyFormSection.innerHTML = '';
-
         if (!token) {
-            replyFormSection.innerHTML = `
-                <div class="text-center py-4">
-                    <p class="text-sm text-slate-600 mb-3">Sign in to publish a reply to this thread.</p>
-                    <a href="login.html" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm focus:outline-none transition">
-                        Sign In to Reply
-                    </a>
-                </div>
-            `;
+            replyFormSection.innerHTML = `<div class="text-center py-4"><p class="text-sm text-slate-600 mb-3">Sign in to publish a reply to this thread.</p><a href="login.html" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition">Sign In to Reply</a></div>`;
             return;
         }
-
         replyFormSection.innerHTML = `
             <form id="reply-form" class="space-y-4">
+                <div id="reply-parent-note" class="hidden rounded-xl bg-indigo-50 text-indigo-700 px-3 py-2 text-sm"></div>
                 <div>
                     <label for="reply-body" class="block text-sm font-semibold text-slate-900">Your Reply</label>
                     <textarea id="reply-body" rows="4" required class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-slate-900 mt-2" placeholder="Write a supportive, detailed comment..."></textarea>
                 </div>
-                <div class="flex justify-end">
-                    <button type="submit" class="inline-flex justify-center items-center px-5 py-2.5 border border-transparent text-sm font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 focus:outline-none transition">
-                        Publish Reply
-                    </button>
+                <div class="flex justify-between gap-3">
+                    <button type="button" id="clear-reply-parent" class="hidden text-sm font-semibold text-slate-500">Reply to thread instead</button>
+                    <button type="submit" class="ml-auto inline-flex justify-center items-center px-5 py-2.5 border border-transparent text-sm font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition">Publish Reply</button>
                 </div>
-            </form>
-        `;
+            </form>`;
 
-        // Handle Reply Form submit
-        const form = document.getElementById('reply-form');
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const body = document.getElementById('reply-body').value;
-
-            if (!body) {
-                utils.showToast('Please type a reply body', 'error');
-                return;
-            }
-
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = 'Submitting...';
-
-            try {
-                const response = await api.post(`/forum/posts/${postId}/replies`, { body });
-                if (response) {
-                    utils.showToast('Reply published successfully!', 'success');
-                    form.reset();
-                    loadPostDetail();
-                }
-            } catch (error) {
-                utils.showToast(error.message || 'Failed to submit reply', 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            }
-        });
+        document.getElementById('clear-reply-parent').addEventListener('click', () => setReplyParent(null));
+        document.getElementById('reply-form').addEventListener('submit', submitReply);
     }
 
-    // Upvote Handlers
-    // 1. Post Upvote
-    if (postUpvoteBtn) {
-        postUpvoteBtn.addEventListener('click', async () => {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                utils.showToast('Please sign in to upvote', 'error');
-                return;
-            }
-
-            try {
-                const result = await api.post('/forum/upvote', {
-                    target_type: 'post',
-                    target_id: parseInt(postId)
-                });
-
-                if (result) {
-                    postUpvoteCount.textContent = result.upvotes;
-                    if (result.upvoted) {
-                        postUpvoteBtn.classList.add('text-indigo-600', 'bg-indigo-50/50');
-                        utils.showToast('Post upvoted!', 'success');
-                    } else {
-                        postUpvoteBtn.classList.remove('text-indigo-600', 'bg-indigo-50/50');
-                    }
-                }
-            } catch (error) {
-                utils.showToast(error.message || 'Upvote failed', 'error');
-            }
-        });
+    function setReplyParent(replyId, name = '') {
+        activeReplyParent = replyId;
+        const note = document.getElementById('reply-parent-note');
+        const clear = document.getElementById('clear-reply-parent');
+        if (!note || !clear) return;
+        note.classList.toggle('hidden', !replyId);
+        clear.classList.toggle('hidden', !replyId);
+        if (replyId) {
+            note.textContent = `Replying to ${name}`;
+            document.getElementById('reply-body').focus();
+        }
     }
 
-    // 2. Reply Upvote (using delegation on replies container)
-    if (repliesContainer) {
-        repliesContainer.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.reply-upvote-btn');
-            if (!btn) return;
-
-            const replyId = btn.dataset.replyId;
-            const token = localStorage.getItem('token');
-            if (!token) {
-                utils.showToast('Please sign in to upvote replies', 'error');
-                return;
-            }
-
-            try {
-                const result = await api.post('/forum/upvote', {
-                    target_type: 'reply',
-                    target_id: parseInt(replyId)
-                });
-
-                if (result) {
-                    const countSpan = btn.querySelector('.reply-upvote-count');
-                    countSpan.textContent = result.upvotes;
-                    
-                    if (result.upvoted) {
-                        btn.classList.add('text-indigo-600', 'bg-indigo-50/50');
-                        utils.showToast('Reply upvoted!', 'success');
-                    } else {
-                        btn.classList.remove('text-indigo-600', 'bg-indigo-50/50');
-                    }
-                }
-            } catch (error) {
-                utils.showToast(error.message || 'Upvote failed', 'error');
-            }
-        });
+    async function submitReply(e) {
+        e.preventDefault();
+        const body = document.getElementById('reply-body').value.trim();
+        if (!body) {
+            utils.showToast('Please type a reply body', 'error');
+            return;
+        }
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        try {
+            await api.post(`/forum/posts/${postId}/replies`, { body, parent_id: activeReplyParent });
+            utils.showToast('Reply published successfully!', 'success');
+            e.target.reset();
+            activeReplyParent = null;
+            loadPostDetail();
+        } catch (error) {
+            utils.showToast(error.message || 'Failed to submit reply', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Publish Reply';
+        }
     }
 
-    // Init
+    postUpvoteBtn?.addEventListener('click', async () => {
+        if (!localStorage.getItem('token')) {
+            utils.showToast('Please sign in to upvote', 'error');
+            return;
+        }
+        try {
+            const result = await api.post('/forum/upvote', { target_type: 'post', target_id: parseInt(postId) });
+            postUpvoteCount.textContent = result.upvotes;
+            postUpvoteBtn.classList.toggle('text-indigo-600', result.upvoted);
+            postUpvoteBtn.classList.toggle('bg-indigo-50/50', result.upvoted);
+        } catch (error) {
+            utils.showToast(error.message || 'Upvote failed', 'error');
+        }
+    });
+
+    repliesContainer?.addEventListener('click', async (e) => {
+        const replyTo = e.target.closest('.reply-to-btn');
+        if (replyTo) {
+            setReplyParent(parseInt(replyTo.dataset.replyId), replyTo.dataset.name);
+            return;
+        }
+
+        const btn = e.target.closest('.reply-upvote-btn');
+        if (!btn) return;
+        if (!localStorage.getItem('token')) {
+            utils.showToast('Please sign in to upvote replies', 'error');
+            return;
+        }
+        try {
+            const result = await api.post('/forum/upvote', { target_type: 'reply', target_id: parseInt(btn.dataset.replyId) });
+            btn.querySelector('.reply-upvote-count').textContent = result.upvotes;
+            btn.classList.toggle('text-indigo-600', result.upvoted);
+            btn.classList.toggle('bg-indigo-50/50', result.upvoted);
+        } catch (error) {
+            utils.showToast(error.message || 'Upvote failed', 'error');
+        }
+    });
+
     loadPostDetail();
 });

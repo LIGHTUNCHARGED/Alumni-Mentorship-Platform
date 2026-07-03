@@ -1,37 +1,158 @@
 /* Custom styles for AlumniConnect */
+:root {
+    color-scheme: light;
+}
 
-/* Toast animation styling */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] main {
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+:root[data-theme="dark"] header,
+:root[data-theme="dark"] .bg-white,
+:root[data-theme="dark"] .bg-slate-50 {
+    background-color: #111827 !important;
+    color: #e5e7eb !important;
+}
+
+:root[data-theme="dark"] .text-slate-900,
+:root[data-theme="dark"] .text-gray-900,
+:root[data-theme="dark"] .text-slate-800,
+:root[data-theme="dark"] .text-gray-800,
+:root[data-theme="dark"] .text-slate-700,
+:root[data-theme="dark"] .text-gray-700 {
+    color: #f8fafc !important;
+}
+
+:root[data-theme="dark"] .text-slate-600,
+:root[data-theme="dark"] .text-gray-600,
+:root[data-theme="dark"] .text-slate-500,
+:root[data-theme="dark"] .text-gray-500 {
+    color: #cbd5e1 !important;
+}
+
+:root[data-theme="dark"] .border-slate-200,
+:root[data-theme="dark"] .border-slate-100,
+:root[data-theme="dark"] .border-gray-200,
+:root[data-theme="dark"] .border-gray-300 {
+    border-color: #334155 !important;
+}
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] [contenteditable="true"] {
+    background-color: #0f172a !important;
+    border-color: #475569 !important;
+    color: #f8fafc !important;
+}
+
+.theme-toggle {
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    color: #334155;
+    background: #ffffff;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+:root[data-theme="dark"] .theme-toggle {
+    background: #1e293b;
+    color: #e2e8f0;
+    border-color: #475569;
+}
+
 .toast-notification {
     transition: opacity 0.3s ease, transform 0.3s ease;
     animation: slideIn 0.3s ease-out;
 }
 
 @keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-/* Custom scrollbars for clean layouts */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+.landing-animate {
+    animation: landingFadeUp 0.75s ease-out both;
 }
 
-::-webkit-scrollbar-track {
-    background: transparent;
+.landing-animate-delay {
+    animation: landingFadeUp 0.75s ease-out 0.12s both;
 }
 
-::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
+@keyframes landingFadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+.rich-body h1,
+.rich-body h2,
+.rich-body h3 {
+    color: inherit;
+    font-weight: 800;
+    margin: 0.8rem 0 0.4rem;
 }
+
+.rich-body h1 { font-size: 1.5rem; }
+.rich-body h2 { font-size: 1.25rem; }
+.rich-body h3 { font-size: 1.1rem; }
+.rich-body ul { list-style: disc; padding-left: 1.25rem; margin: 0.5rem 0; }
+.rich-body strong { font-weight: 800; }
+.rich-body em { font-style: italic; }
+.rich-code {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+    white-space: pre-wrap;
+}
+
+.editor-shell {
+    min-height: calc(100vh - 4rem);
+}
+
+.editor-toolbar button {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.65rem;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #334155;
+    background: #fff;
+}
+
+.editor-toolbar button:hover {
+    background: #f8fafc;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0.75rem;
+    text-align: left;
+    vertical-align: top;
+    font-size: 0.875rem;
+}
+
+:root[data-theme="dark"] .admin-table th,
+:root[data-theme="dark"] .admin-table td {
+    border-color: #334155;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
