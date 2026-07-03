@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, BookingRequest, BookingStatus, ForumPost, ForumReply, UserRole
 from app.auth import get_current_user
+from app.schemas import DashboardSummaryOut
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-@router.get("")
+@router.get("", response_model=DashboardSummaryOut)
 def get_dashboard_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

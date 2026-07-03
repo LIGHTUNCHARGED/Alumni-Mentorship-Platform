@@ -90,3 +90,24 @@ def decline_booking(
     db.commit()
     db.refresh(booking)
     return booking
+
+@router.delete("/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_booking(
+    booking_id: int,
+    current_user: User = Depends(require_role(UserRole.STUDENT)),
+    db: Session = Depends(get_db)
+):
+    booking = db.query(BookingRequest).filter(
+        BookingRequest.id == booking_id,
+        BookingRequest.student_id == current_user.id
+    ).first()
+    
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking request not found"
+        )
+        
+    db.delete(booking)
+    db.commit()
+    return

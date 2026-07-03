@@ -94,9 +94,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             <h3 class="font-bold text-slate-900">${booking.topic}</h3>
                             <p class="text-xs text-slate-500 font-medium mt-0.5">Mentor: ${booking.mentor.full_name} (${booking.mentor.email})</p>
                         </div>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusStyles}">
-                            ${booking.status}
-                        </span>
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusStyles}">
+                                ${booking.status}
+                            </span>
+                            <button class="cancel-booking-btn text-xs text-rose-600 hover:text-rose-800 font-semibold mt-1" data-id="${booking.id}">
+                                Cancel Request
+                            </button>
+                        </div>
                     </div>
                     <div class="text-xs text-slate-600">
                         <span class="font-bold text-slate-700">Preferred Date:</span> ${dateStr}
@@ -128,11 +133,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 studentForumContainer.appendChild(title);
 
                 posts.slice(0, 3).forEach(post => {
-                    const a = document.createElement('a');
-                    a.href = `forum-post.html?id=${post.id}`;
-                    a.className = 'block border-l-2 border-indigo-500 pl-3 py-1 text-sm text-slate-700 hover:text-indigo-600 font-medium truncate';
-                    a.textContent = post.title;
-                    studentForumContainer.appendChild(a);
+                    const flexDiv = document.createElement('div');
+                    flexDiv.className = 'flex justify-between items-center gap-2 border-l-2 border-indigo-500 pl-3 py-1';
+                    flexDiv.innerHTML = `
+                        <a href="forum-post.html?id=${post.id}" class="text-sm text-slate-750 hover:text-indigo-600 font-medium truncate flex-grow">
+                            ${post.title}
+                        </a>
+                        <button class="delete-post-btn text-xs text-slate-400 hover:text-rose-600 font-medium shrink-0 px-1.5" data-id="${post.id}">
+                            Delete
+                        </button>
+                    `;
+                    studentForumContainer.appendChild(flexDiv);
                 });
             }
 
@@ -148,7 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     a.href = `forum-post.html?id=${reply.post_id}`;
                     a.className = 'block border-l-2 border-slate-300 pl-3 py-1 text-sm text-slate-600 hover:text-indigo-600 truncate';
                     a.innerHTML = `<span class="italic font-light">"Value reply..."</span>`;
-                    // Fetch post title if available, otherwise general link
                     a.textContent = reply.body;
                     studentForumContainer.appendChild(a);
                 });
@@ -406,6 +416,58 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'declined': return 'bg-rose-100 text-rose-800';
             default: return 'bg-slate-100 text-slate-800';
         }
+    }
+
+    // Student: Cancel Booking Click Delegation
+    if (studentBookingsContainer) {
+        studentBookingsContainer.addEventListener('click', async (e) => {
+            const cancelBtn = e.target.closest('.cancel-booking-btn');
+            if (!cancelBtn) return;
+            
+            const bookingId = cancelBtn.dataset.id;
+            cancelBtn.disabled = true;
+            
+            if (confirm('Are you sure you want to cancel this mentorship request?')) {
+                try {
+                    await api.delete(`/bookings/${bookingId}`);
+                    utils.showToast('Mentorship request cancelled successfully!', 'success');
+                    // Reload dashboard data
+                    const updatedData = await api.get('/dashboard');
+                    renderStudentDashboard(updatedData);
+                } catch (error) {
+                    utils.showToast(error.message || 'Failed to cancel request', 'error');
+                    cancelBtn.disabled = false;
+                }
+            } else {
+                cancelBtn.disabled = false;
+            }
+        });
+    }
+
+    // Student: Delete Own Topic Click Delegation
+    if (studentForumContainer) {
+        studentForumContainer.addEventListener('click', async (e) => {
+            const deleteBtn = e.target.closest('.delete-post-btn');
+            if (!deleteBtn) return;
+            
+            const postId = deleteBtn.dataset.id;
+            deleteBtn.disabled = true;
+            
+            if (confirm('Are you sure you want to delete this discussion topic? This action cannot be undone.')) {
+                try {
+                    await api.delete(`/forum/posts/${postId}`);
+                    utils.showToast('Topic deleted successfully!', 'success');
+                    // Reload dashboard data
+                    const updatedData = await api.get('/dashboard');
+                    renderStudentDashboard(updatedData);
+                } catch (error) {
+                    utils.showToast(error.message || 'Failed to delete topic', 'error');
+                    deleteBtn.disabled = false;
+                }
+            } else {
+                deleteBtn.disabled = false;
+            }
+        });
     }
 
     // Initial Load

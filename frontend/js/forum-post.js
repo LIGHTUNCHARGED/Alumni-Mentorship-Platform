@@ -58,6 +58,35 @@ document.addEventListener('DOMContentLoaded', () => {
         // Author Role Badge Styling
         postAuthorRole.textContent = post.author.role;
         postAuthorRole.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ml-1.5 ${post.author.role === 'alumni' ? 'bg-indigo-100 text-indigo-800' : 'bg-green-100 text-green-800'}`;
+
+        // Render Delete Button if author is current user
+        const userJson = localStorage.getItem('user');
+        const user = userJson ? JSON.parse(userJson) : null;
+        const adminActions = document.getElementById('post-admin-actions');
+        if (adminActions) {
+            adminActions.innerHTML = '';
+            if (user && user.id === post.author_id) {
+                adminActions.innerHTML = `
+                    <button id="delete-post-btn" class="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-800 font-semibold border border-rose-200 hover:bg-rose-50 px-3 py-1.5 rounded-xl transition">
+                        🗑️ Delete Topic
+                    </button>
+                `;
+
+                document.getElementById('delete-post-btn').addEventListener('click', async () => {
+                    if (confirm('Are you sure you want to delete this topic? This action cannot be undone.')) {
+                        try {
+                            await api.delete(`/forum/posts/${post.id}`);
+                            utils.showToast('Topic deleted successfully!', 'success');
+                            setTimeout(() => {
+                                window.location.href = 'forum.html';
+                            }, 1500);
+                        } catch (err) {
+                            utils.showToast(err.message || 'Failed to delete topic', 'error');
+                        }
+                    }
+                });
+            }
+        }
     }
 
     // Render Replies List

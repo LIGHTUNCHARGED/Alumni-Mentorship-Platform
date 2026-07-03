@@ -130,3 +130,19 @@ class UpvoteToggle(BaseModel):
 class UpvoteResponse(BaseModel):
     upvoted: bool
     upvotes: int
+
+# ── Dashboard Schemas ──────────────────────────────────
+
+class DashboardSummaryOut(BaseModel):
+    role: UserRole
+    # For Alumni
+    pending_bookings: Optional[List[BookingRequestOut]] = None
+    accepted_bookings: Optional[List[BookingRequestOut]] = None
+    # For Student
+    my_bookings: Optional[List[BookingRequestOut]] = None
+    my_replies: Optional[List[ForumReplyOut]] = None
+    # Both
+    my_posts: Optional[List[ForumPostOut]] = None
+
+    class Config:
+        from_attributes = True
