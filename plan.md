@@ -1,8 +1,8 @@
-# NALUM Alumni Mentorship Platform — 3-Day Implementation Plan
+# NALUM Alumni Mentorship Platform — 4-Day Implementation Plan
 
 > **Context**: Junior Developer Recruitment Task  
 > **Tech Stack**: HTML / Tailwind CSS / Vanilla JS · Python / FastAPI · SQLite / SQLAlchemy  
-> **Timeline**: 3 days  
+> **Timeline**: 4 days  
 > **Deployment**: GitHub Pages (frontend) + Render (backend)
 
 ---
@@ -14,13 +14,13 @@
 3. [Data Models (ERD & SQLAlchemy)](#3-data-models-erd--sqlalchemy)
 4. [API Endpoints](#4-api-endpoints)
 5. [Data Flow Diagrams](#5-data-flow-diagrams)
-6. [3-Day Implementation Schedule](#6-3-day-implementation-schedule)
+6. [4-Day Implementation Schedule](#6-4-day-implementation-schedule)
 7. [Deployment](#7-deployment)
 8. [Component & File Structure](#8-component--file-structure)
 
 ---
 
-## 1. Scope & Simplifications
+## 1. Scope & Features
 
 ### Core Features (must-have)
 
@@ -28,20 +28,19 @@
 |---------|---------------|
 | **Mentor Profiles** | Display name, domain, experience, bio, availability. Search/filter by domain & experience. |
 | **Booking Requests** | Students send requests (name, date/time, topic, message). Mentors accept or decline. |
-| **Discussion Forum** | Create posts, reply (single-level threading), upvote. Search by keyword. |
+| **Discussion Forum** | Create posts, nested reply threading (replies-to-replies via `parent_id`), upvote. Search by keyword. |
 | **Dashboard** | Mentors: pending requests + upcoming sessions. Students: sent requests + forum activity. |
+| **3-Role JWT Auth** | Three roles: `Student`, `Alumni` (mentor), and `Admin`. Role embedded in JWT payload and enforced via `require_role()` dependency. |
+| **Admin Panel & Moderation** | Admin-only panel: ban/unban users, soft-delete forum posts/replies, view all platform bookings. |
 
-### What's Cut (vs. the full 9-week plan)
+### Scope Decisions & Trade-offs
 
-| Removed | Reason |
-|---------|--------|
-| Role-based JWT auth (3 roles) | Simplified to 2 roles (Student / Alumni) with basic JWT |
-| Admin panel & moderation | Not a core feature for the demo |
+| Kept Simple | Reason |
+|-------------|--------|
 | Email / SMTP notifications | Replaced with in-app notifications only |
 | Alembic migrations | Use `Base.metadata.create_all()` — sufficient for a demo |
-| Availability slots model | Simplify to a text field on the mentor profile |
+| Availability slots model | Free-text field on the mentor profile (e.g. "Mon-Fri 9-5") |
 | Downvotes | Upvote-only (simpler, still demonstrates the concept) |
-| Nested reply threading | Single-level replies (replies to posts, not replies-to-replies) |
 | CI/CD pipeline | Manual deploy is fine for a recruitment task |
 | Refresh tokens | Single JWT with reasonable expiry (24h) |
 | Advanced security (CSP, rate limiting) | Basic auth + CORS is sufficient |
@@ -92,8 +91,8 @@
 | No frontend build step | Tailwind via CDN, vanilla JS — zero tooling |
 | SQLite + `create_all()` | No migration tool needed, DB resets cleanly |
 | JWT in localStorage | Simpler than httpOnly cookies for a demo (avoids CORS cookie issues) |
-| Single-level replies | Avoids recursive queries; still shows threading concept |
-| 2 roles only | Student + Alumni — keeps auth logic minimal |
+| Self-referential replies | `parent_id` FK on `ForumReply` enables arbitrary-depth nested threading |
+| 3 roles (Student/Alumni/Admin) | Covers all use cases; Admin guards are a single `require_role(UserRole.ADMIN)` decorator |
 
 ---
 
@@ -110,7 +109,9 @@
 │ password_hash    │───────────────────┐
 │ full_name        │                   │
 │ role (enum:      │          ┌────────▼─────────┐
-│   student/alumni)│          │  MentorProfile   │
+│   student/       │          │  MentorProfile   │
+│   alumni/admin)  │          │──────────────────│
+│ is_banned        │          │ (admin can set)  │
 │ created_at       │          │──────────────────│
 └──────┬───────────┘          │ id (PK)          │
        │                      │ user_id (FK,uniq)│
@@ -149,19 +150,22 @@
        │     │ title               │
        │     │ body                │
        │     │ upvotes (int)       │
+       │     │ is_deleted (bool)   │ ← soft-delete by admin
        │     │ created_at          │
        │     └──────┬──────────────┘
        │            │ 1:N
-       │     ┌──────▼──────────────┐
-       │     │   ForumReply        │
-       │     │─────────────────────│
-       │     │ id (PK)             │
-       │     │ post_id (FK→Post)   │
-       │     │ author_id (FK→User) │
-       │     │ body                │
-       │     │ upvotes (int)       │
-       │     │ created_at          │
-       │     └─────────────────────┘
+       │     ┌──────▼──────────────────────────────┐
+       │     │   ForumReply                        │
+       │     │─────────────────────────────────────│
+       │     │ id (PK)                             │
+       │     │ post_id (FK→ForumPost)              │
+       │     │ parent_id (FK→ForumReply, nullable) │ ← nested threading
+       │     │ author_id (FK→User)                 │
+       │     │ body                                │
+       │     │ upvotes (int)                       │
+       │     │ is_deleted (bool)                   │ ← soft-delete by admin
+       │     │ created_at                          │
+       │     └─────────────────────────────────────┘
        │
        │ 1:N (upvote tracking)
        └──────────────┐
@@ -179,7 +183,8 @@
               └──────────────────────┘
 ```
 
-> **5 tables total**: User, MentorProfile, BookingRequest, ForumPost, ForumReply, Upvote (6 including Upvote tracking).
+> **6 tables total**: User, MentorProfile, BookingRequest, ForumPost, ForumReply, Upvote.
+> Key additions vs. simplified plan: `User.role` gains `admin` value; `User.is_banned` enables banning; `ForumReply.parent_id` enables nested threading; `is_deleted` on posts/replies enables admin soft-deletion.
 
 ### 3.2 SQLAlchemy Models
 
@@ -200,6 +205,7 @@ Base = declarative_base()
 class UserRole(str, enum.Enum):
     STUDENT = "student"
     ALUMNI = "alumni"
+    ADMIN = "admin"           # New: platform moderator role
 
 
 class BookingStatus(str, enum.Enum):
@@ -223,6 +229,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     full_name     = Column(String(150), nullable=False)
     role          = Column(Enum(UserRole), nullable=False, default=UserRole.STUDENT)
+    is_banned     = Column(Boolean, default=False)           # Admin can ban users
     created_at    = Column(DateTime, default=datetime.utcnow)
 
     mentor_profile = relationship("MentorProfile", back_populates="user", uselist=False)
@@ -281,6 +288,7 @@ class ForumPost(Base):
     title      = Column(String(200), nullable=False)
     body       = Column(Text, nullable=False)
     upvotes    = Column(Integer, default=0)
+    is_deleted = Column(Boolean, default=False)              # Soft-delete by admin
     created_at = Column(DateTime, default=datetime.utcnow)
 
     author  = relationship("User", back_populates="posts")
@@ -292,13 +300,17 @@ class ForumReply(Base):
 
     id         = Column(Integer, primary_key=True, index=True)
     post_id    = Column(Integer, ForeignKey("forum_posts.id"), nullable=False)
+    parent_id  = Column(Integer, ForeignKey("forum_replies.id"), nullable=True)  # Nested threading
     author_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
     body       = Column(Text, nullable=False)
     upvotes    = Column(Integer, default=0)
+    is_deleted = Column(Boolean, default=False)              # Soft-delete by admin
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    post   = relationship("ForumPost", back_populates="replies")
-    author = relationship("User", back_populates="replies")
+    post     = relationship("ForumPost", back_populates="replies")
+    author   = relationship("User", back_populates="replies")
+    parent   = relationship("ForumReply", remote_side=[id], back_populates="children")
+    children = relationship("ForumReply", back_populates="parent", cascade="all, delete-orphan")
 
 
 # ── Upvote (prevents double-voting) ───────────────────
@@ -349,8 +361,18 @@ def get_db():
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
 | `POST` | `/api/auth/register` | Register (email, password, full_name, role) | No |
-| `POST` | `/api/auth/login` | Login → returns JWT | No |
+| `POST` | `/api/auth/login` | Login → returns JWT with embedded `role` claim | No |
 | `GET`  | `/api/auth/me` | Get current user from token | Yes |
+
+**JWT Payload (3-role):**
+```json
+{
+  "sub": "42",
+  "role": "alumni",
+  "exp": 1720000000
+}
+```
+The `role` claim is enforced server-side by `require_role()`. Valid values: `"student"`, `"alumni"`, `"admin"`.
 
 ### 4.2 Mentors (`/api/mentors`) — 4 endpoints
 
@@ -370,24 +392,28 @@ def get_db():
 | `min_exp` | `3` | Minimum years |
 | `page` | `1` | Pagination (10 per page) |
 
-### 4.3 Bookings (`/api/bookings`) — 4 endpoints
+### 4.3 Bookings (`/api/bookings`) — 5 endpoints
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| `POST`  | `/api/bookings` | Student creates a request | Yes (student) |
-| `GET`   | `/api/bookings` | List own bookings (both roles) | Yes |
-| `PATCH` | `/api/bookings/{id}/accept` | Mentor accepts | Yes (mentor) |
-| `PATCH` | `/api/bookings/{id}/decline` | Mentor declines | Yes (mentor) |
+| `POST`   | `/api/bookings` | Student creates a request | Yes (student) |
+| `GET`    | `/api/bookings` | List own bookings (both roles) | Yes |
+| `PATCH`  | `/api/bookings/{id}/accept` | Mentor accepts | Yes (alumni) |
+| `PATCH`  | `/api/bookings/{id}/decline` | Mentor declines | Yes (alumni) |
+| `DELETE` | `/api/bookings/{id}` | Student cancels a pending request | Yes (student) |
 
-### 4.4 Forum (`/api/forum`) — 5 endpoints
+### 4.4 Forum (`/api/forum`) — 7 endpoints
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| `GET`   | `/api/forum/posts` | List posts (`?q=`, `?sort=recent|popular`) | No |
-| `GET`   | `/api/forum/posts/{id}` | Get post + its replies | No |
-| `POST`  | `/api/forum/posts` | Create a post | Yes |
-| `POST`  | `/api/forum/posts/{id}/replies` | Reply to a post | Yes |
-| `POST`  | `/api/forum/upvote` | Toggle upvote `{target_type, target_id}` | Yes |
+| `GET`    | `/api/forum/posts` | List posts (`?q=`, `?sort=recent\|popular`) | No |
+| `GET`    | `/api/forum/posts/{id}` | Get post + **nested reply tree** | No |
+| `POST`   | `/api/forum/posts` | Create a post | Yes |
+| `POST`   | `/api/forum/posts/{id}/replies` | Reply to a post or reply (`?parent_id=`) | Yes |
+| `POST`   | `/api/forum/upvote` | Toggle upvote `{target_type, target_id}` | Yes |
+| `DELETE` | `/api/forum/posts/{id}` | Author deletes their own post | Yes |
+
+**Nested Reply Note:** Replies accept an optional `parent_id` query param. `GET /posts/{id}` returns replies as a tree where each node has a `children` list.
 
 ### 4.5 Dashboard (`/api/dashboard`) — 1 endpoint
 
@@ -413,7 +439,20 @@ def get_db():
 }
 ```
 
-### Total: ~17 endpoints (vs. 35+ in the full plan)
+### 4.6 Admin Panel (`/api/admin`) — 6 endpoints  ⭐ New
+
+> All endpoints in this group require `role == admin` in the JWT.
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| `GET`    | `/api/admin/users` | List all users with role and ban status | Yes (admin) |
+| `PATCH`  | `/api/admin/users/{id}/ban` | Ban a user (`is_banned = True`) | Yes (admin) |
+| `PATCH`  | `/api/admin/users/{id}/unban` | Unban a user | Yes (admin) |
+| `DELETE` | `/api/admin/posts/{id}` | Soft-delete any forum post | Yes (admin) |
+| `DELETE` | `/api/admin/replies/{id}` | Soft-delete any forum reply | Yes (admin) |
+| `GET`    | `/api/admin/bookings` | View all platform bookings | Yes (admin) |
+
+### Total: ~26 endpoints
 
 ---
 
@@ -560,65 +599,76 @@ User                       FastAPI                  SQLite
 
 ---
 
-## 6. 3-Day Implementation Schedule
+## 6. 4-Day Implementation Schedule
 
-### Day 1 — Backend Foundation + Auth + Mentors
+### Day 1 — Backend Foundation + Auth (3 Roles) + Mentors + Bookings
 
 | Block | Hours | Task | Deliverable |
 |-------|-------|------|-------------|
-| Morning | 2h | **Project setup** | FastAPI app, SQLAlchemy engine, `models.py`, `database.py`, CORS config, `.env` with `SECRET_KEY` |
-| Morning | 1.5h | **Auth endpoints** | `POST /register`, `POST /login`, `GET /me`. Password hashing with `passlib[bcrypt]`, JWT with `python-jose`. Pydantic schemas for request/response validation. |
-| Afternoon | 2h | **Mentor CRUD** | `GET /mentors` (with `q`, `domain`, `min_exp` filters + pagination), `GET /mentors/{id}`, `POST /mentors/profile`, `PUT /mentors/profile`. Dynamic SQLAlchemy query builder for search. |
-| Evening | 1.5h | **Booking endpoints** | `POST /bookings`, `GET /bookings`, `PATCH /bookings/{id}/accept`, `PATCH /bookings/{id}/decline`. Auth guards (student-only create, mentor-only accept/decline). |
-| Evening | 0.5h | **Seed data script** | `seed.py` — create 3-4 sample mentors, 2 students, a few bookings for demo. |
+| Morning | 2h | **Project setup** | FastAPI app, SQLAlchemy engine, `models.py` (with `is_banned`, `parent_id`, `is_deleted`), `database.py`, CORS, `.env` |
+| Morning | 1.5h | **Auth endpoints (3-role)** | `POST /register`, `POST /login`, `GET /me`. Native `bcrypt` hashing, JWT embedding `role` claim (`student`/`alumni`/`admin`). `require_role()` dependency factory. |
+| Afternoon | 2h | **Mentor CRUD** | `GET /mentors` (filters: `q`, `domain`, `min_exp`, pagination), `GET /mentors/{id}`, `POST /mentors/profile`, `PUT /mentors/profile`. Alumni-only guards. |
+| Evening | 1.5h | **Booking endpoints** | `POST`, `GET`, `PATCH /accept`, `PATCH /decline`, `DELETE` (student cancel). Role guards. |
+| Evening | 0.5h | **Seed data script** | `seed.py` — 1 admin, 3 mentors, 2 students, bookings, threaded forum posts for demo. |
 
-**Day 1 check**: All backend endpoints work via FastAPI Swagger UI (`/docs`).
+**Day 1 check**: All backend endpoints pass in FastAPI Swagger UI (`/docs`).
 
 ---
 
-### Day 2 — Forum Backend + Full Frontend
+### Day 2 — Forum (Nested Replies) + Admin Panel + Frontend Shared Layer
 
 | Block | Hours | Task | Deliverable |
 |-------|-------|------|-------------|
-| Morning | 1.5h | **Forum endpoints** | `GET /posts`, `GET /posts/{id}`, `POST /posts`, `POST /posts/{id}/replies`, `POST /upvote`. Upvote toggle logic. Search + sort (recent/popular). |
-| Morning | 1h | **Dashboard endpoint** | `GET /dashboard` — role-conditional query returning bookings + posts for the current user. |
-| Afternoon | 1h | **Frontend: shared layer** | `api.js` (fetch wrapper with token injection), `utils.js` (date formatting, toast, debounce), base HTML template with Tailwind CDN, navbar component. |
-| Afternoon | 1.5h | **Frontend: Auth + Landing** | `index.html` (landing page with hero section), `login.html`, `register.html`. Form submission, token storage, redirect logic. |
-| Evening | 2h | **Frontend: Mentors** | `mentors.html` — search bar, domain dropdown, experience filter, mentor card grid, pagination. `mentor-detail.html` — full profile view + booking request modal. |
-| Evening | 0.5h | **Test integration** | Verify: register → login → browse mentors → book a session. |
+| Morning | 2h | **Forum endpoints + nested threading** | `GET /posts`, `GET /posts/{id}` (reply tree), `POST /posts`, `POST /posts/{id}/replies` (`?parent_id=`), `POST /upvote`, `DELETE /posts/{id}`. Recursive `parent_id`-based reply tree builder. |
+| Morning | 1h | **Dashboard endpoint** | `GET /dashboard` — role-conditional query (bookings + posts for the current user). |
+| Morning | 1.5h | **Admin router** ⭐ | `GET /admin/users`, `PATCH /users/{id}/ban`, `PATCH /users/{id}/unban`, `DELETE /admin/posts/{id}` (soft-delete `is_deleted=True`), `DELETE /admin/replies/{id}`, `GET /admin/bookings`. Guarded by `require_role(UserRole.ADMIN)`. |
+| Afternoon | 1h | **Frontend: shared layer** | `api.js` (fetch + token + 401 redirect), `utils.js` (toast, debounce, role-aware navbar). |
+| Afternoon | 1.5h | **Frontend: Auth + Landing** | `index.html`, `login.html`, `register.html`. Token + user JSON in `localStorage`. Redirect on login. |
+| Evening | 0.5h | **Test integration** | Register → login → browse mentors → book. Admin token verified in `/docs`. |
 
-**Day 2 check**: Auth flow and mentor browsing + booking work end-to-end in the browser.
+**Day 2 check**: All backend routes tested. Admin endpoints verified with seeded admin token.
 
 ---
 
-### Day 3 — Forum Frontend + Dashboard + Deploy
+### Day 3 — Mentor, Forum, Dashboard, Admin Frontend
 
 | Block | Hours | Task | Deliverable |
 |-------|-------|------|-------------|
-| Morning | 1.5h | **Frontend: Forum** | `forum.html` — post list with search + sort toggle (recent/popular). Create post form. `forum-post.html` — single post with reply list, reply form, upvote buttons. |
-| Morning | 1.5h | **Frontend: Dashboard** | `dashboard.html` — tab or section layout. Mentor view: pending requests with accept/decline buttons, accepted sessions list. Student view: sent requests with status badges, recent forum activity. |
-| Afternoon | 1h | **UI polish** | Responsive layout check, loading states, error messages, empty states ("No mentors found"), consistent spacing/colors. |
-| Afternoon | 1h | **Deploy backend (Render)** | Push backend to GitHub. Create Render Web Service. Set env vars (`SECRET_KEY`, `CORS_ORIGINS`). Verify `/docs` is live. |
-| Evening | 0.5h | **Deploy frontend (GitHub Pages)** | Update `API_BASE_URL` in `api.js`. Push to GitHub. Enable Pages. Test cross-origin requests. |
-| Evening | 0.5h | **Final smoke test** | Full flow on live URLs: register → login → search mentor → book → forum post → dashboard. |
+| Morning | 2h | **Frontend: Mentors** | `mentors.html` (search, filter, card grid), `mentor-detail.html` (full profile + booking modal). |
+| Morning | 1.5h | **Frontend: Forum** | `forum.html` (post list, search, sort). `forum-post.html` — recursive nested reply rendering, reply-to-reply toggle, upvote. |
+| Afternoon | 2h | **Frontend: Dashboard** | `dashboard.html` — mentor (accept/decline), student (cancel sessions, delete posts). Role-conditional rendering. |
+| Evening | 1h | **Frontend: Admin Panel** ⭐ | `admin.html` — user list with ban/unban buttons, soft-delete posts/replies, all bookings table. Accessible only if `role === "admin"`. |
+| Evening | 0.5h | **Test integration** | Nested replies, admin moderation actions, ban flow. |
 
-**Day 3 check**: Both frontend and backend are live and all 4 features work.
+**Day 3 check**: All 6 features work end-to-end in the browser.
+
+---
+
+### Day 4 — UI Polish + Deploy
+
+| Block | Hours | Task | Deliverable |
+|-------|-------|------|-------------|
+| Morning | 1h | **UI polish** | Responsive layout, loading states, empty states, nested reply visual indentation. |
+| Morning | 1h | **Deploy backend (Render)** | Push to GitHub. Render Web Service. Set `SECRET_KEY`, `CORS_ORIGINS`. Verify `/docs` live. |
+| Afternoon | 0.5h | **Deploy frontend (GitHub Pages)** | Update `API_BASE_URL` in `api.js`. Enable Pages. Test CORS. |
+| Afternoon | 0.5h | **Final smoke test** | Full flow on live URLs: register → login → book mentor → nested forum replies → admin panel → dashboard. |
+
+**Day 4 check**: Both services live. All 6 features verified on production URLs.
 
 ---
 
 ### Daily Summary
 
 ```
-Day 1                    Day 2                    Day 3
-─────────────────       ─────────────────       ─────────────────
- FastAPI setup           Forum backend           Forum frontend
- Auth (register/login)   Dashboard endpoint      Dashboard frontend
- Mentor CRUD + search    Frontend shared layer   UI polish
- Booking endpoints       Auth + Landing pages    Deploy to Render
- Seed data               Mentor pages + booking  Deploy to GitHub Pages
-                                                 Final testing
-─────────────────       ─────────────────       ─────────────────
- ~7.5 hrs                ~7.5 hrs                ~6 hrs
+Day 1                    Day 2                         Day 3                    Day 4
+─────────────────       ───────────────────────       ─────────────────       ─────────────────
+ FastAPI setup           Forum (nested replies)        Mentor frontend         UI polish
+ Auth (3-role JWT)       Dashboard endpoint            Forum frontend          Deploy backend
+ Mentor CRUD + search    Admin router ⭐               Dashboard frontend      Deploy frontend
+ Booking endpoints       Frontend shared layer         Admin panel ⭐          Final testing
+ Seed data               Auth + Landing pages
+─────────────────       ───────────────────────       ─────────────────       ─────────────────
+ ~7.5 hrs                ~7.5 hrs                      ~7 hrs                  ~3 hrs
 ```
 
 ---
@@ -703,8 +753,9 @@ frontend/
 ├── mentors.html            ← Mentor search + list
 ├── mentor-detail.html      ← Single mentor + booking modal
 ├── forum.html              ← Post list + create
-├── forum-post.html         ← Post detail + replies
+├── forum-post.html         ← Post detail + nested replies
 ├── dashboard.html          ← Role-based dashboard
+├── admin.html              ← Admin panel (moderation) ⭐
 │
 ├── css/
 │   └── styles.css          ← Custom styles (Tailwind via CDN)
@@ -715,8 +766,9 @@ frontend/
 │   ├── mentors.js          ← search, filter, render cards
 │   ├── mentor-detail.js    ← profile view, booking form
 │   ├── forum.js            ← post list, create post
-│   ├── forum-post.js       ← replies, upvoting
-│   ├── dashboard.js        ← tabbed dashboard
+│   ├── forum-post.js       ← nested replies, upvoting
+│   ├── dashboard.js        ← tabbed dashboard, cancel/delete actions
+│   ├── admin.js            ← user ban/unban, post soft-delete ⭐
 │   └── utils.js            ← date format, toast, debounce
 │
 └── assets/
@@ -737,11 +789,12 @@ backend/
 │   │
 │   └── routers/
 │       ├── __init__.py
-│       ├── auth.py         ← /api/auth/*
+│       ├── auth.py         ← /api/auth/* (3-role JWT)
 │       ├── mentors.py      ← /api/mentors/*
-│       ├── bookings.py     ← /api/bookings/*
-│       ├── forum.py        ← /api/forum/*
-│       └── dashboard.py    ← /api/dashboard
+│       ├── bookings.py     ← /api/bookings/* (incl. student cancel)
+│       ├── forum.py        ← /api/forum/* (nested replies via parent_id)
+│       ├── dashboard.py    ← /api/dashboard
+│       └── admin.py        ← /api/admin/* (ban, soft-delete, all-bookings) ⭐
 │
 ├── seed.py                 ← Populate demo data
 ├── requirements.txt
@@ -764,5 +817,5 @@ python-dotenv
 
 ---
 
-> **Total effort**: ~21 hours across 3 days  
-> **Result**: A fully functional mentorship platform with 4 core features, deployed on free infrastructure, demonstrating CRUD, auth, search/filter, and forum capabilities.
+> **Total effort**: ~25 hours across 4 days  
+> **Result**: A fully functional mentorship platform with 6 core features — including 3-role JWT auth, admin moderation panel, and nested reply threading — deployed on free infrastructure.
