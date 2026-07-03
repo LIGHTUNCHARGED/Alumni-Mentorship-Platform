@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - AlumniConnect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>body{font-family:'Plus Jakarta Sans',sans-serif}h1,h2,h3,.font-display{font-family:'Outfit',sans-serif}</style>
+</head>
+<body class="h-full flex flex-col">
+    <header id="navbar-container" class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm"></header>
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
+        <div class="flex flex-col gap-2 mb-8">
+            <p class="text-sm font-semibold text-indigo-600">Platform Operations</p>
+            <h1 class="text-3xl font-bold text-slate-900">Admin Panel</h1>
+            <p class="text-sm text-slate-600">Monitor accounts, bookings, forum posts, and replies. Ban accounts or soft-delete content when needed.</p>
+        </div>
+
+        <section id="admin-stats" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-8"></section>
+
+        <div id="admin-denied" class="hidden bg-white border border-rose-200 rounded-xl p-8 text-center">
+            <h2 class="text-xl font-bold text-slate-900">Admin access required</h2>
+            <p class="text-slate-600 mt-2">Sign in with an administrator account to view moderation tools.</p>
+        </div>
+
+        <div id="admin-content" class="space-y-8 hidden">
+            <section class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm overflow-x-auto">
+                <h2 class="text-lg font-bold text-slate-900 mb-4">Users and Mentors</h2>
+                <table class="admin-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-users"></tbody></table>
+            </section>
+            <section class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm overflow-x-auto">
+                <h2 class="text-lg font-bold text-slate-900 mb-4">Forum Posts</h2>
+                <table class="admin-table"><thead><tr><th>Title</th><th>Author</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-posts"></tbody></table>
+            </section>
+            <section class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm overflow-x-auto">
+                <h2 class="text-lg font-bold text-slate-900 mb-4">Forum Replies</h2>
+                <table class="admin-table"><thead><tr><th>Reply</th><th>Author</th><th>Post</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-replies"></tbody></table>
+            </section>
+            <section class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm overflow-x-auto">
+                <h2 class="text-lg font-bold text-slate-900 mb-4">Bookings</h2>
+                <table class="admin-table"><thead><tr><th>Topic</th><th>Student</th><th>Mentor</th><th>Status</th><th>Date</th></tr></thead><tbody id="admin-bookings"></tbody></table>
+            </section>
+        </div>
+    </main>
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>

@@ -3,8 +3,6 @@ from datetime import datetime
 from typing import Optional, List
 from app.models import UserRole, BookingStatus, TargetType
 
-# ── User Schemas ───────────────────────────────────────
-
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str
@@ -20,7 +18,20 @@ class UserLogin(BaseModel):
 class UserOut(UserBase):
     id: int
     role: UserRole
+    is_banned: bool = False
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PublicProfileOut(BaseModel):
+    id: int
+    full_name: str
+    email: EmailStr
+    role: UserRole
+    is_banned: bool
+    created_at: datetime
+    mentor_profile: Optional["MentorProfileBase"] = None
 
     class Config:
         from_attributes = True
@@ -29,8 +40,6 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserOut
-
-# ── Mentor Profile Schemas ─────────────────────────────
 
 class MentorProfileBase(BaseModel):
     domain: str
@@ -42,8 +51,7 @@ class MentorProfileBase(BaseModel):
     @field_validator("bio")
     @classmethod
     def validate_bio_word_count(cls, v: str) -> str:
-        word_count = len(v.split())
-        if word_count > 200:
+        if len(v.split()) > 200:
             raise ValueError("Bio must be at most 200 words")
         return v
 
@@ -61,8 +69,6 @@ class MentorProfileOut(MentorProfileBase):
 
     class Config:
         from_attributes = True
-
-# ── Booking Request Schemas ────────────────────────────
 
 class BookingRequestCreate(BaseModel):
     mentor_id: int
@@ -85,24 +91,24 @@ class BookingRequestOut(BaseModel):
     class Config:
         from_attributes = True
 
-# ── Forum Reply Schemas ────────────────────────────────
-
 class ForumReplyCreate(BaseModel):
     body: str
+    parent_id: Optional[int] = None
 
 class ForumReplyOut(BaseModel):
     id: int
     post_id: int
+    parent_id: Optional[int] = None
     author_id: int
     body: str
     upvotes: int
+    is_deleted: bool = False
     created_at: datetime
     author: UserOut
+    children: List["ForumReplyOut"] = []
 
     class Config:
         from_attributes = True
-
-# ── Forum Post Schemas ─────────────────────────────────
 
 class ForumPostCreate(BaseModel):
     title: str = Field(..., max_length=200)
@@ -114,14 +120,13 @@ class ForumPostOut(BaseModel):
     title: str
     body: str
     upvotes: int
+    is_deleted: bool = False
     created_at: datetime
     author: UserOut
     replies: List[ForumReplyOut] = []
 
     class Config:
         from_attributes = True
-
-# ── Upvote Schemas ─────────────────────────────────────
 
 class UpvoteToggle(BaseModel):
     target_type: TargetType
@@ -131,17 +136,22 @@ class UpvoteResponse(BaseModel):
     upvoted: bool
     upvotes: int
 
-# ── Dashboard Schemas ──────────────────────────────────
+class AdminStatsOut(BaseModel):
+    users: int
+    mentors: int
+    posts: int
+    replies: int
+    bookings: int
+
+class AdminForumReplyOut(ForumReplyOut):
+    pass
 
 class DashboardSummaryOut(BaseModel):
     role: UserRole
-    # For Alumni
     pending_bookings: Optional[List[BookingRequestOut]] = None
     accepted_bookings: Optional[List[BookingRequestOut]] = None
-    # For Student
     my_bookings: Optional[List[BookingRequestOut]] = None
     my_replies: Optional[List[ForumReplyOut]] = None
-    # Both
     my_posts: Optional[List[ForumPostOut]] = None
 
     class Config:
