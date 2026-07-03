@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discussion Thread — AlumniConnect</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        h1, h2, h3, .font-display {
+            font-family: 'Outfit', sans-serif;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col">
+    <!-- Navbar Container -->
+    <header id="navbar-container" class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm"></header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
+        <!-- Back Link -->
+        <a href="forum.html" class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition mb-6">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            Back to Forum
+        </a>
+
+        <!-- Main post detail card -->
+        <div id="forum-post-detail-card" class="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 sm:p-8 space-y-6 hidden">
+            <!-- Author meta -->
+            <div class="flex items-center gap-3 text-xs text-slate-500 pb-4 border-b border-slate-100">
+                <div id="post-author-avatar" class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+                    <!-- Initials -->
+                </div>
+                <div>
+                    <span id="post-author-name" class="font-semibold text-slate-800"><!-- Name --></span>
+                    <span id="post-author-role" class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ml-1.5">
+                        <!-- Role -->
+                    </span>
+                    <span class="mx-1.5">•</span>
+                    <span id="post-date"><!-- Date --></span>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div>
+                <h1 id="post-title" class="text-2xl font-bold text-slate-900 mb-4"><!-- Title --></h1>
+                <p id="post-body" class="text-slate-700 text-sm leading-relaxed font-light whitespace-pre-line"><!-- Body --></p>
+            </div>
+
+            <!-- Upvote action -->
+            <div class="pt-4 border-t border-slate-100 flex items-center gap-4">
+                <button id="post-upvote-btn" class="flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 transition px-4 py-2 rounded-xl hover:bg-slate-50 border border-slate-200 font-medium text-sm">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                    <span id="post-upvote-count">0</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Replies Section -->
+        <div class="mt-8 space-y-6">
+            <h2 class="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2">Replies (<span id="replies-count">0</span>)</h2>
+            
+            <!-- Replies Container -->
+            <div id="replies-container" class="space-y-4"></div>
+
+            <!-- Comment Box -->
+            <div id="reply-form-section" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <!-- Loaded dynamically based on auth status -->
+            </div>
+        </div>
+
+        <!-- Loader -->
+        <div id="thread-loader" class="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 sm:p-8 space-y-6 animate-pulse mt-4">
+            <div class="flex gap-4 border-b border-slate-100 pb-6">
+                <div class="w-10 h-10 rounded-full bg-slate-200"></div>
+                <div class="flex-grow space-y-2">
+                    <div class="h-4 bg-slate-200 rounded w-1/4"></div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <div class="h-5 bg-slate-200 rounded w-2/3"></div>
+                <div class="h-4 bg-slate-200 rounded"></div>
+                <div class="h-4 bg-slate-200 rounded w-5/6"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+                AlumniConnect
+            </div>
+            <p class="text-sm">
+                &copy; 2026 AlumniConnect. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/forum-post.js"></script>
+</body>
+</html>
