@@ -7,9 +7,10 @@
     color-scheme: dark;
 }
 
+:root[data-theme="dark"],
 :root[data-theme="dark"] body,
 :root[data-theme="dark"] main {
-    background: #0f172a;
+    background-color: #0f172a !important;
     color: #e2e8f0;
 }
 
