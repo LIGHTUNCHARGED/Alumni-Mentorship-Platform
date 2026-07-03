@@ -41,7 +41,7 @@ def list_mentors(
 
 @router.get("/{mentor_id}", response_model=MentorProfileOut)
 def get_mentor_detail(mentor_id: int, db: Session = Depends(get_db)):
-    profile = db.query(MentorProfile).filter(MentorProfile.id == mentor_id).first()
+    profile = db.query(MentorProfile).filter(MentorProfile.user_id == mentor_id).first()
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
