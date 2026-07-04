@@ -1,6 +1,6 @@
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://127.0.0.1:8000/api'
-    : 'https://nalum-mentorship-api.onrender.com/api'; // Replace with production Render API URL when deployed
+    : 'https://alumni-mentorship-platform.onrender.com/api';
 
 const api = {
     async request(method, path, body = null, params = null) {
