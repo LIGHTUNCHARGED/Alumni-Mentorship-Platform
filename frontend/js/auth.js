@@ -30,7 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     utils.showToast('Signed in successfully!', 'success');
                     setTimeout(() => {
-                        window.location.href = 'dashboard.html';
+                        if (response.user && response.user.role === 'admin') {
+                            window.location.href = 'admin.html';
+                        } else {
+                            window.location.href = 'dashboard.html';
+                        }
                     }, 1000);
                 } else {
                     utils.showToast('Failed to sign in', 'error');
