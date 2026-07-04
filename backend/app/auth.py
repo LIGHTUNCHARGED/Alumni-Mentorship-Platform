@@ -1,3 +1,4 @@
+import os
 from jose import JWTError, jwt
 import bcrypt
 from datetime import datetime, timedelta
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, UserRole
 
-SECRET_KEY = "nalum_alumni_mentorship_secret_key_2026"
+SECRET_KEY = os.environ.get("SECRET_KEY", "nalum_alumni_mentorship_secret_key_2026")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
